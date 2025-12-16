@@ -85,7 +85,8 @@ export class XmlTestParser {
                     const testResult: HttpTestResult = {
                         Name: testName,
                         Passed: passed,
-                        Message: message
+                        Message: message,
+                        Source: 'inline'
                     };
                     
                     allTests.push(testResult);
@@ -121,10 +122,15 @@ export class XmlTestParser {
                                 }
                             }
                             
-                            // Any remaining CSX tests go to the special group
+                            // All CSX tests go to the separate Custom CSX Tests section
                             if (csxTests.length) {
+                                // Mark CSX tests with source indicator
+                                csxTests.forEach(test => test.Source = 'csx');
+                                
+                                // Put all CSX tests in the special group
                                 const existingCustomTests = allTestsByRequest.get('_CUSTOM_CSX_TESTS') || [];
                                 allTestsByRequest.set('_CUSTOM_CSX_TESTS', [...existingCustomTests, ...csxTests]);
+                                this.outputChannel?.appendLine(`[XmlTestParser] ${csxTests.length} CSX tests moved to _CUSTOM_CSX_TESTS`);
                             }
                         } else {
                             // Fallback: if no request has test directives, treat all tests as custom tests
@@ -166,8 +172,8 @@ export class XmlTestParser {
     /**
      * Waits for XML report file to be updated
      */
-    static async waitForXmlReportUpdate(reportPath: string, beforeTimestamp: number): Promise<void> {
-        const maxWaitTime = 10000; // 10 seconds maximum wait
+    static async waitForXmlReportUpdate(reportPath: string, beforeTimestamp: number, maxWaitMs: number = 10000): Promise<void> {
+        const maxWaitTime = maxWaitMs; // Default 10 seconds, but configurable
         const pollInterval = 100; // Check every 100ms 
         const startTime = Date.now();
         
