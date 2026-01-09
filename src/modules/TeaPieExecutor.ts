@@ -144,7 +144,7 @@ export class TeaPieExecutor {
             
             await XmlTestParser.waitForXmlReportUpdate(reportPath, beforeTimestamp);
             
-            const result = await this.parseOutput(filePath, workspaceFolder.uri.fsPath, structuredRequestsFile);
+            const result = await this.parseOutput(filePath, workspaceFolder.uri.fsPath, structuredRequestsFile, reportPath);
             if (!result.RequestGroups?.RequestGroup?.[0]?.Requests?.length) {
                 return this.createFailedResult(filePath, ERROR_NO_HTTP_FOUND);
             }
@@ -158,11 +158,11 @@ export class TeaPieExecutor {
     /**
      * Parses TeaPie structured JSON requests and returns HTTP request results
      */
-    private static async parseOutput(filePath: string, workspacePath: string, structuredRequestsFile: string): Promise<HttpRequestResults> {
+    private static async parseOutput(filePath: string, workspacePath: string, structuredRequestsFile: string, reportPath: string): Promise<HttpRequestResults> {
         const fileName = path.basename(filePath, path.extname(filePath));
         
         // Parse test results from XML file
-        const testResultsFromXml = await XmlTestParser.parseTestResultsFromXml(workspacePath, filePath);
+        const testResultsFromXml = await XmlTestParser.parseTestResultsFromXml(workspacePath, filePath, reportPath);
         
         // Parse structured JSON requests
         let structuredParseResult: CliParseResult;

@@ -12,43 +12,47 @@ export class XmlTestParser {
         this.outputChannel = channel;
     }
 
-    static async parseTestResultsFromXml(workspacePath: string, filePath: string): Promise<Map<string, HttpTestResult[]>> {
+    static async parseTestResultsFromXml(workspacePath: string, filePath: string, reportPath?: string): Promise<Map<string, HttpTestResult[]>> {
         const testResults = new Map<string, HttpTestResult[]>();
         
         try {
-            // Look for the most recent test report file
-            const reportsDir = `${workspacePath}/.teapie/reports`;
-            
-            let reportPath: string;
-            try {
-                // First try the expected last-run-report.xml
-                reportPath = `${reportsDir}/last-run-report.xml`;
-                await fs.access(reportPath);
-                this.outputChannel?.appendLine(`[XmlTestParser] Found last-run-report.xml`);
-            } catch {
-                // If not found, look for the most recent timestamped report
+            // If reportPath is provided, use it directly
+            if (!reportPath) {
+                // Otherwise, look for the most recent test report file
+                const reportsDir = `${workspacePath}/.teapie/reports`;
+                
                 try {
-                    const files = await fs.readdir(reportsDir);
-                    const reportFiles = files.filter((f: string) => f.startsWith('run-') && f.endsWith('-report.xml'));
-                    
-                    if (reportFiles.length === 0) {
-                        this.outputChannel?.appendLine(`[XmlTestParser] No test report files found in ${reportsDir}`);
+                    // First try the expected last-run-report.xml
+                    reportPath = `${reportsDir}/last-run-report.xml`;
+                    await fs.access(reportPath);
+                    this.outputChannel?.appendLine(`[XmlTestParser] Found last-run-report.xml`);
+                } catch {
+                    // If not found, look for the most recent timestamped report
+                    try {
+                        const files = await fs.readdir(reportsDir);
+                        const reportFiles = files.filter((f: string) => f.startsWith('run-') && f.endsWith('-report.xml'));
+                        
+                        if (reportFiles.length === 0) {
+                            this.outputChannel?.appendLine(`[XmlTestParser] No test report files found in ${reportsDir}`);
+                            return testResults;
+                        }
+                        
+                        // Sort by timestamp (newest first) and take the most recent
+                        reportFiles.sort((a: string, b: string) => {
+                            const timestampA = parseInt(a.match(/run-(\d+)-report\.xml/)?.[1] || '0');
+                            const timestampB = parseInt(b.match(/run-(\d+)-report\.xml/)?.[1] || '0');
+                            return timestampB - timestampA;
+                        });
+                        
+                        reportPath = `${reportsDir}/${reportFiles[0]}`;
+                        this.outputChannel?.appendLine(`[XmlTestParser] Using most recent report: ${reportFiles[0]}`);
+                    } catch (dirError) {
+                        this.outputChannel?.appendLine(`[XmlTestParser] Failed to read reports directory: ${dirError}`);
                         return testResults;
                     }
-                    
-                    // Sort by timestamp (newest first) and take the most recent
-                    reportFiles.sort((a: string, b: string) => {
-                        const timestampA = parseInt(a.match(/run-(\d+)-report\.xml/)?.[1] || '0');
-                        const timestampB = parseInt(b.match(/run-(\d+)-report\.xml/)?.[1] || '0');
-                        return timestampB - timestampA;
-                    });
-                    
-                    reportPath = `${reportsDir}/${reportFiles[0]}`;
-                    this.outputChannel?.appendLine(`[XmlTestParser] Using most recent report: ${reportFiles[0]}`);
-                } catch (dirError) {
-                    this.outputChannel?.appendLine(`[XmlTestParser] Failed to read reports directory: ${dirError}`);
-                    return testResults;
                 }
+            } else {
+                this.outputChannel?.appendLine(`[XmlTestParser] Using provided report path: ${reportPath}`);
             }
             
             const xmlContent = await fs.readFile(reportPath, 'utf8');
